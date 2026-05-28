@@ -18,94 +18,168 @@ function VerdictIcon({ output }) {
   return <AlertTriangleIcon className="size-5 text-warning" />;
 }
 
+function Metric({ icon, label, value }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-base-content/70">
+      {icon}
+      <span>{label}:</span>
+      <span className="font-semibold text-base-content/90">{value}</span>
+    </span>
+  );
+}
+
+function ValueBlock({ label, value, tone = "neutral" }) {
+  const toneClass =
+    tone === "expected"
+      ? "text-sky-300"
+      : tone === "actual"
+        ? "text-amber-300"
+        : "text-emerald-300";
+
+  return (
+    <div className="min-w-0 rounded-xl border border-white/10 bg-black/25 p-3">
+      <p className={`mb-2 text-xs font-semibold uppercase tracking-[0.14em] ${toneClass}`}>
+        {label}
+      </p>
+      <pre className="overflow-x-auto whitespace-pre-wrap break-words font-mono text-xs leading-5 text-base-content/80">
+        {formatValue(value)}
+      </pre>
+    </div>
+  );
+}
+
 function OutputPanel({ output }) {
   const cases = output?.cases || [];
   const failedCase = cases.find((testCase) => !testCase.passed && !testCase.hidden);
   const isSubmit = output?.mode === "submit";
+  const hiddenSummary = output?.hiddenSummary;
+  const visiblePassedCount = output?.visiblePassedCount ?? cases.filter((testCase) => testCase.passed).length;
+  const visibleCaseCount = output?.visibleCaseCount ?? cases.length;
 
   return (
-    <div className="h-full bg-base-100 flex flex-col">
-      <div className="px-4 py-2 bg-base-200 border-b border-base-300 font-semibold text-sm">
-        Results
+    <div className="h-full min-h-0 overflow-hidden rounded-2xl border border-white/10 bg-[#0e1117] shadow-[0_16px_40px_rgba(0,0,0,0.2)] flex flex-col">
+      <div className="flex items-center justify-between gap-3 border-b border-white/10 bg-[#151820] px-4 py-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-base-content/45">Run results</p>
+          <h2 className="text-sm font-semibold text-base-content/90">Test cases and logs</h2>
+        </div>
+        {output && (
+          <span
+            className={`rounded-full px-3 py-1 text-xs font-semibold ${
+              output.success
+                ? "bg-success/15 text-success border border-success/30"
+                : "bg-error/15 text-error border border-error/30"
+            }`}
+          >
+            {output.success ? "Passed" : "Needs review"}
+          </span>
+        )}
       </div>
-      <div className="flex-1 overflow-auto p-4">
+      <div className="min-h-0 flex-1 overflow-auto p-4">
         {output === null ? (
-          <p className="text-base-content/50 text-sm">Run or submit code to see verdicts here.</p>
+          <div className="flex h-full min-h-36 items-center justify-center rounded-2xl border border-dashed border-white/10 bg-white/[0.03] p-6 text-center">
+            <p className="max-w-sm text-sm leading-6 text-base-content/55">
+              Run or submit code to see verdicts, testcase comparisons, and logs here.
+            </p>
+          </div>
         ) : (
           <div className="space-y-4">
             <div
-              className={`rounded-lg border p-4 ${
+              className={`rounded-2xl border p-4 ${
                 output.success
                   ? "bg-success/10 border-success/30"
                   : "bg-error/10 border-error/30"
               }`}
             >
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <VerdictIcon output={output} />
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 rounded-xl border border-white/10 bg-black/20 p-2">
+                    <VerdictIcon output={output} />
+                  </div>
                   <div>
-                    <p className="font-bold text-lg">{output.verdict || "Execution Result"}</p>
-                    <p className="text-sm opacity-75">
-                      {isSubmit && output.success ? "Passed all " : isSubmit ? "Passed " : "Visible cases: "}
-                      {output.passedCount ?? 0}/{output.totalCases ?? 0} testcases
+                    <p className="text-lg font-semibold">{output.verdict || "Execution Result"}</p>
+                    <p className="mt-1 text-sm text-base-content/70">
+                      Visible testcases: {visiblePassedCount}/{visibleCaseCount} passed
                     </p>
+                    {isSubmit && hiddenSummary && (
+                      <p className="text-sm text-base-content/70">
+                        Hidden verification: {hiddenSummary.passedCount}/{hiddenSummary.totalCases}{" "}
+                        {hiddenSummary.verified ? "verified" : "passed"}
+                      </p>
+                    )}
                   </div>
                 </div>
-                <div className="flex items-center gap-3 text-xs opacity-80">
-                  <span className="inline-flex items-center gap-1">
-                    <ClockIcon className="size-4" />
-                    {output.runtimeMs ?? 0}ms
-                  </span>
-                  <span className="inline-flex items-center gap-1">
-                    <CpuIcon className="size-4" />
-                    {output.memoryKb ?? 0}KB
-                  </span>
+                <div className="flex flex-wrap gap-2">
+                  <Metric icon={<ClockIcon className="size-4" />} label="Runtime" value={`${output.runtimeMs ?? 0}ms`} />
+                  <Metric icon={<CpuIcon className="size-4" />} label="Memory" value={`${output.memoryKb ?? 0}KB`} />
                 </div>
               </div>
             </div>
 
             {failedCase && (
-              <div className="rounded-lg border border-error/30 bg-base-200 p-4 space-y-2">
-                <p className="font-semibold text-error">Failed testcase #{failedCase.index + 1}</p>
-                <div className="grid gap-2 text-sm">
-                  <pre className="whitespace-pre-wrap">
-                    <span className="font-semibold">Input: </span>
-                    {formatValue(failedCase.input)}
-                  </pre>
-                  <pre className="whitespace-pre-wrap">
-                    <span className="font-semibold">Expected: </span>
-                    {formatValue(failedCase.expected)}
-                  </pre>
-                  <pre className="whitespace-pre-wrap">
-                    <span className="font-semibold">Received: </span>
-                    {formatValue(failedCase.actual)}
-                  </pre>
-                  {failedCase.error && (
-                    <pre className="text-error whitespace-pre-wrap">{failedCase.error}</pre>
-                  )}
+              <div className="rounded-2xl border border-error/30 bg-error/10 p-4">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <p className="font-semibold text-error">Failed testcase #{failedCase.index + 1}</p>
+                  <span className="rounded-full bg-error/15 px-3 py-1 text-xs font-semibold text-error">
+                    Failed
+                  </span>
                 </div>
+                <div className="grid gap-3 md:grid-cols-3">
+                  <ValueBlock label="Input" value={failedCase.input} />
+                  <ValueBlock label="Expected" value={failedCase.expected} tone="expected" />
+                  <ValueBlock label="Received" value={failedCase.actual} tone="actual" />
+                </div>
+                {failedCase.error && (
+                  <pre className="mt-3 overflow-x-auto whitespace-pre-wrap break-words rounded-xl border border-error/25 bg-black/25 p-3 font-mono text-xs leading-5 text-error">
+                    {failedCase.error}
+                  </pre>
+                )}
               </div>
             )}
 
-            {isSubmit && output.type === "wrong_answer" && (
-              <div className="rounded-lg border border-error/30 bg-base-200 p-4 text-sm">
-                Hidden testcase details are not shown. Review your generalized function logic and submit again.
+            {isSubmit && hiddenSummary && (
+              <div
+                className={`rounded-2xl border p-4 text-sm ${
+                  hiddenSummary.verified
+                    ? "border-success/30 bg-success/10"
+                    : "border-warning/30 bg-warning/10"
+                }`}
+              >
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <span className="font-semibold">Hidden testcases</span>
+                  <span className={hiddenSummary.verified ? "text-success" : "text-warning"}>
+                    {hiddenSummary.passedCount}/{hiddenSummary.totalCases} verified
+                  </span>
+                </div>
+                <p className="mt-2 leading-6 text-base-content/65">
+                  Inputs and expected outputs are hidden, but every hidden case is checked on submit.
+                </p>
               </div>
             )}
 
             {cases.length > 0 && (
-              <div className="grid gap-2">
+              <div className="space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-base-content/45">
+                  Visible testcases
+                </p>
                 {cases.map((testCase) => (
                   <div
                     key={testCase.index}
-                    className={`rounded-md border px-3 py-2 text-sm flex items-center justify-between ${
-                      testCase.passed ? "border-success/30" : "border-error/30"
+                    className={`rounded-2xl border p-4 text-sm ${
+                      testCase.passed ? "border-success/25 bg-success/5" : "border-error/25 bg-error/5"
                     }`}
                   >
-                    <span>Case {testCase.index + 1}</span>
-                    <span className={testCase.passed ? "text-success" : "text-error"}>
-                      {testCase.passed ? "Passed" : "Failed"}
-                    </span>
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <span className="font-semibold">Case {testCase.index + 1}</span>
+                      <span className={testCase.passed ? "text-success" : "text-error"}>
+                        {testCase.passed ? "Correct" : "Failed"}
+                      </span>
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-3">
+                      <ValueBlock label="Input" value={testCase.input} />
+                      <ValueBlock label="Expected" value={testCase.expected} tone="expected" />
+                      <ValueBlock label="Output" value={testCase.actual} tone="actual" />
+                    </div>
                   </div>
                 ))}
               </div>
@@ -113,17 +187,20 @@ function OutputPanel({ output }) {
 
             {output.output && (
               <div>
-                <p className="font-semibold mb-2">Stdout</p>
-                <pre className="text-sm font-mono bg-base-200 rounded-lg p-3 whitespace-pre-wrap">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-base-content/45">Stdout</p>
+                <pre className="overflow-x-auto whitespace-pre-wrap break-words rounded-xl border border-white/10 bg-black/25 p-3 font-mono text-xs leading-5 text-base-content/80">
                   {output.output}
                 </pre>
               </div>
             )}
 
             {output.error && output.type !== "wrong_answer" && (
-              <pre className="text-sm font-mono text-error bg-error/10 rounded-lg p-3 whitespace-pre-wrap">
-                {output.error}
-              </pre>
+              <div>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-error/80">Error</p>
+                <pre className="overflow-x-auto whitespace-pre-wrap break-words rounded-xl border border-error/25 bg-error/10 p-3 font-mono text-xs leading-5 text-error">
+                  {output.error}
+                </pre>
+              </div>
             )}
           </div>
         )}
